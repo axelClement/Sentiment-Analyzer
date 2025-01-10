@@ -3,13 +3,17 @@ from datetime import datetime  # Pour convertir les timestamps
 from reddit_config import reddit
 from generate_keywords import get_sp500_companies
 
-def scrape_reddit(output_file="data/reddit_sp500_posts.csv", post_limit=100):
+def scrape_reddit(output_file="data/reddit_sp500_posts.csv", post_limit=100, subreddits=None):
     """
-    Scrape les données du subreddit 'stocks' et les enregistre dans un fichier CSV.
+    Scrape les données de plusieurs subreddits et les enregistre dans un fichier CSV.
 
     :param output_file: Chemin vers le fichier CSV où enregistrer les résultats.
-    :param post_limit: Nombre de posts à parcourir.
+    :param post_limit: Nombre de posts à parcourir par subreddit.
+    :param subreddits: Liste des subreddits à analyser.
     """
+    if subreddits is None:
+        subreddits = ["stocks"]  # Subreddit par défaut
+
     sp500_companies = get_sp500_companies()
     keywords = list(sp500_companies.keys())  # Les mots-clés sont les symboles des entreprises
 
@@ -24,26 +28,29 @@ def scrape_reddit(output_file="data/reddit_sp500_posts.csv", post_limit=100):
         text = text.replace("\n", " ").replace("\r", " ")
         return text.strip()
 
-    subreddit = reddit.subreddit("stocks")
-
     with open(output_file, "w", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(["ID", "Titre", "Score", "Date", "Mots-clés", "Commentaires"])  # Ajout de "Date"
+        writer.writerow(["Subreddit", "ID", "Titre", "Score", "Date", "Mots-clés", "Commentaires"])  # Ajout de "Subreddit"
 
         posts_found = 0
         print("Chargement", end="", flush=True)
-        for post in subreddit.new(limit=post_limit):
-            matched_keywords = [kw for kw in keywords if kw in post.title]
-            if matched_keywords:
-                posts_found += 1
-                title = clean_text(post.title)
-                date = datetime.utcfromtimestamp(post.created_utc).strftime('%Y-%m-%d')  # Convertir la date
-                post.comments.replace_more(limit=0)
-                comments = [clean_text(comment.body) for comment in post.comments.list()]
-                comments_text = " | ".join(comments[:5])
+        
+        for subreddit_name in subreddits:
+            print(f"\nAnalyse de r/{subreddit_name}")
+            subreddit = reddit.subreddit(subreddit_name)
 
-                writer.writerow([post.id, title, post.score, date, ", ".join(matched_keywords), comments_text])
-                print(".", end="", flush=True)
+            for post in subreddit.new(limit=post_limit):
+                matched_keywords = [kw for kw in keywords if kw in post.title]
+                if matched_keywords:
+                    posts_found += 1
+                    title = clean_text(post.title)
+                    date = datetime.utcfromtimestamp(post.created_utc).strftime('%Y-%m-%d')  # Convertir la date
+                    post.comments.replace_more(limit=0)
+                    comments = [clean_text(comment.body) for comment in post.comments.list()]
+                    comments_text = " | ".join(comments)  # Tous les commentaires
+
+                    writer.writerow([subreddit_name, post.id, title, post.score, date, ", ".join(matched_keywords), comments_text])
+                    print(".", end="", flush=True)
 
         print(" Terminé!", end="\n")
         if posts_found == 0:
@@ -52,4 +59,6 @@ def scrape_reddit(output_file="data/reddit_sp500_posts.csv", post_limit=100):
             print(f"{posts_found} posts ont été écrits dans le fichier CSV.", end="\n")
 
 if __name__ == "__main__":
-    scrape_reddit()
+    # Liste des subreddits à analyser
+    subreddits_to_scrape = ["stocks", "investing", "wallstreetbets"]
+    scrape_reddit(output_file="data/reddit_sp500_posts.csv", post_limit=100, subreddits=subreddits_to_scrape)

@@ -1,9 +1,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def visualize_sentiments(input_file):
+def visualize_combined_sentiment(input_file):
     """
-    Visualise les tendances des sentiments sur une période donnée.
+    Visualise les tendances des sentiments combinés sous forme d'une seule courbe.
     """
     # Charger les données
     try:
@@ -12,20 +12,28 @@ def visualize_sentiments(input_file):
         print(f"Erreur : Le fichier {input_file} est introuvable.")
         return
 
-    # Compter les sentiments par date
-    sentiment_counts = data.groupby(["Date", "Sentiment"]).size().unstack(fill_value=0)
+    # Attribuer des scores aux sentiments
+    sentiment_scores = {"Positif": 1, "Neutre": 0, "Négatif": -1}
+    data["Sentiment_Score"] = data["Sentiment"].map(sentiment_scores)
 
-    # Créer le graphique
-    sentiment_counts.plot(kind="bar", stacked=True, figsize=(12, 6))
-    plt.title("Tendances des sentiments sur Reddit")
+    # Calculer la somme des scores par date
+    combined_sentiment = data.groupby("Date")["Sentiment_Score"].sum()
+
+    # Tracer la courbe
+    plt.figure(figsize=(12, 6))
+    plt.plot(combined_sentiment.index, combined_sentiment.values, marker='o', linestyle='-', label="Score de sentiment combiné")
+
+    # Ajouter des titres et des légendes
+    plt.title("Tendances combinées des sentiments sur Reddit")
     plt.xlabel("Date")
-    plt.ylabel("Nombre de posts")
+    plt.ylabel("Score de sentiment")
     plt.xticks(rotation=45)
-    plt.legend(title="Sentiment")
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.legend()
     plt.tight_layout()
     plt.show()
 
 # Tester la fonction
 if __name__ == "__main__":
     input_file = "data/sentiment_analysis_results.csv"
-    visualize_sentiments(input_file)
+    visualize_combined_sentiment(input_file)
